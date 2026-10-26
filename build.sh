@@ -1,10 +1,10 @@
 #!/bin/bash
 npm run build
 
-distpath="/home/bro/sources/stratuxmap/dist"
-expresspath="/home/bro/sources/stratuxexpress/dist"
+srcdistpath="/home/bro/sources/mapclient/dist"
+serverpath="/home/bro/sources/mapserver/dist"
 
-mkdir -p "$expresspath"
+mkdir -p "$serverpath"
 
-cp -r -f "$distpath"/* "$expresspath"
-echo "dist copied to $expresspath"
+cp -r -f "$srcdistpath"/* "$serverpath"
+echo "$mapclient dist copied to $serverpath"
