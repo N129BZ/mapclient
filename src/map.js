@@ -167,29 +167,16 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     document.getElementById('radius-header').textContent = `Airport Search Radius\nDouble-click on any map location`;
 
-    // Handle Back-Forward Cache (bfcache) Restoration
-    window.addEventListener('pageshow', async (event) => {
-        // If event.persisted is true, the browser froze the page and killed the socket.
-        // We must force a reconnection.
-        if (event.persisted || !socket) {
-            await startListening();;
-        }
-        await loadUserData();
-    });
-
-    // Handle Page Unload / Freezing into bfcache
-    window.addEventListener('pagehide', async (event) => {
-        await saveUserData();
-    });
 
     document.addEventListener('visibilitychange', async function () {
         const vs = document.visibilityState
         try {
             if (vs === 'hidden') {
+                console.log("visibilitychange!, saving map state...");
                 await saveUserData();
             }
             else {
-                console.log("visibilitychange event, restoring map state...");
+                console.log("visibilitychange! restoring map state...");
                 await loadUserData();
             }
         }
@@ -216,47 +203,56 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     async function saveUserData() {
-        console.log("SAVING MAP STATE!")
-        const view = await map.getView();
-        const layers = await map.getLayers();
-        const center = await view.getCenter();
-        const zoom = await view.getZoom();
-        const rotation = await view.getRotation();
+        const view = map.getView();
+        const layers = map.getLayers();
+        const center = view.getCenter();
+        const zoom = view.getZoom();
+        const rotation = view.getRotation();
+        
         const layerStates = [];
-
+        
+        // 2. Safely extract visibility states
         layers.forEach((layer) => {
             const layerName = layer.get('name');
             if (layerName) {
-                layerStates.push({
-                    name: layerName,
-                    visible: layer.getVisible()
+                layerStates.push({ 
+                    name: layerName, 
+                    visible: layer.getVisible() 
                 });
             }
-        })
-
+        });
+        
         mapstate.center = center;
         mapstate.zoom = zoom;
         mapstate.rotation = rotation;
-        mapstate.radius = selectedRadius
+        mapstate.radius = selectedRadius;
         mapstate.layerstates = layerStates;
-        state = JSON.stringify(mapstate);
-
-        await fetch('/api/userdata', {
-            method: 'POST',
-            body: state
-        })
-        .then(response => {
+        
+        const state = JSON.stringify(mapstate);
+        
+        try {
+            const response = await fetch('/api/userdata', { 
+            method: 'POST', 
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: state 
+            });
+            
             if (!response.ok) {
                 throw new Error('Failed to save map state');
-            } else {
-                console.log('Map state saved successfully');
             }
-        })
-        .catch(error => {
+            
+            console.log('Map state saved successfully');
+        } catch (error) {
             console.error('Error saving map state:', error);
-        });
+        }
 
-        await disconnectWebSocket();
+       try {
+            await disconnectWebSocket();
+        } catch (wsError) {
+            console.error('Error disconnecting WebSocket:', wsError);
+        }
     }
 
     async function loadUserData() {
