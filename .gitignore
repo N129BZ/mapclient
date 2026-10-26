@@ -1,6 +1,8 @@
 # Ignore node_modules and build output
 node_modules/
 dist/
+package-lock.json
+
 # Ignore database and other generated files
 Sectional.db
 main_old.js
