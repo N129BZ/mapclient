@@ -1,8 +1,8 @@
 #!/bin/bash
 npm run build
 
-srcdistpath="./mapclient/dist"
-serverpath="./mapserver/dist"
+srcdistpath="/home/bro/sources/mapclient/dist"
+serverpath="/home/bro/sources/mapserver/dist"
 
 mkdir -p "$serverpath"
 

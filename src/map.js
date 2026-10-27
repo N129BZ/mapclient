@@ -228,15 +228,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         mapstate.radius = selectedRadius;
         mapstate.layerstates = layerStates;
         
-        const state = JSON.stringify(mapstate);
-        
         try {
             const response = await fetch('/api/userdata', { 
                 method: 'POST', 
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(state) 
+                body: JSON.stringify(mapstate) 
             });
             
             if (!response.ok) {
@@ -254,19 +253,22 @@ document.addEventListener('DOMContentLoaded', async function () {
         let apvisible = false;
         
         try {
-            const response = await fetch('/api/userdata')
+            const response = await fetch('/api/userdata', {
+                credentials: 'include'
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            const data = await response.json(); 
-            
+            const rawdata = await response.json(); 
+            const data = JSON.parse(rawdata);
+
             mapstate.center = data.center;
             mapstate.zoom = data.zoom;
             mapstate.rotation = data.rotation;
             mapstate.layerstates = data.layerstates;
-            radiusDropdown.value = data.radius;
+            mapstate.radius = data.radius;
 
             if (maplayers && Array.isArray(mapstate.layerstates)) {
                 for (const layer of mapstate.layerstates) {
@@ -276,7 +278,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                         if (targetLayer) {
                             targetLayer.setVisible(layer.visible);
-                            if (layer.name = "airports" && layer.visible) {
+                            if (layer.name === "airports" && layer.visible) {
                                 apvisible = true;
                             }
                         } else {
@@ -292,40 +294,30 @@ document.addEventListener('DOMContentLoaded', async function () {
                 view.setCenter(mapstate.center);
                 view.setZoom(mapstate.zoom);
                 view.setRotation(mapstate.rotation);
+                
                 if (apvisible) {
                     currentDoubleClickLocation = toLonLat(mapstate.center);
-                    const event = new Event('change', { bubbles: true });
-                    radiusDropdown.dispatchEvent(event);
+                    const coordinate = {coordinate: mapstate.center};
+                    map.dispatchEvent({
+                        type: 'dblclick',
+                        coordinate: mapstate.center,
+                        pixel: map.getPixelFromCoordinate(mapstate.center) 
+                    });
+
+                    radiusDropdown.value = mapstate.radius;
+                    await showAirportsInRadius(currentDoubleClickLocation[0], 
+                                               currentDoubleClickLocation[1], mapstate.radius);
                 }
             } else {
                 view.setCenter(chicagoCoords);
                 view.setZoom(appsettings.startupzoom);
                 view.setRotation(0);
             }
-            console.log("Restoring map state...");
+            console.log("Map state restored!");
         } catch(error) {
             console.log(`Error restoring map state: ${error}`);   
         }
     }
-
-    // /**
-    //  * Raise the double click event on the map
-    //  */
-    // function raiseMapDoubleClick() {
-    //     const viewport = map.getViewport();
-    //     const rect = viewport.getBoundingClientRect();
-    //     const clientX = rect.left + rect.width / 2;
-    //     const clientY = rect.top + rect.height / 2;
-
-    //     const dblClickEvent = new MouseEvent('dblclick', {
-    //         clientX: clientX,
-    //         clientY: clientY,
-    //         bubbles: true,
-    //         cancelable: true
-    //     });
-
-    //     viewport.dispatchEvent(dblClickEvent);
-    // }
 
     /* Map objects used for various keyname lookups */
     let reconnectTimeout = null;
@@ -825,21 +817,19 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (radius === 'clear') {
             Promise.resolve(clearAirportFeatures())
             selectedRadius = 0; // Set to 0 to indicate no search
-            //stateCache.selectedRadius = selectedRadius;
             this.value = ''; // Reset dropdown to default
             return;
         }
 
         if (radius === '') {
-            clearAirportFeatures();
-            //stateCache.selectedRadius = 50;
+            promise.resolve(clearAirportFeatures());
+            this.value = '';
             return;
         }
 
         // Store the selected radius
         selectedRadius = parseInt(radius);
-        //stateCache.selectedRadius = selectedRadius;
-
+        
         // Only search for airports if a radius is selected (not 0/clear)
         if (selectedRadius > 0 && currentDoubleClickLocation) {
             let lonlat = [currentDoubleClickLocation.lon, currentDoubleClickLocation.lat];
@@ -3454,4 +3444,5 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     console.log("Line 3216: DOMContentLoaded"); //, restoring map state.");
     await loadTileDatabases();
+    await loadUserData();
 });
