@@ -107,21 +107,23 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.log("App settings loaded:", appsettings);
     } catch (error) {
         console.error("CRITICAL CONFIGURATION ERROR:", error);
-
         document.body.innerHTML = '';
-
         const errorContainer = document.createElement('div');
         errorContainer.style.cssText = "font-family: sans-serif; padding: 40px; text-align: center; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb; margin: 50px auto; max-width: 600px; border-radius: 4px;";
-
         errorContainer.innerHTML = `
             <h2>Critical Initialization Failure</h2>
             <p>The application could not load configuration profiles and has been halted.</p>
             <p style="font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ddd; color: #333;">${error.message}</p>`;
-
         document.body.appendChild(errorContainer);
-
         throw new Error("Application halted due to settings loading failure.");
     }
+
+    document.addEventListener('onreadystatechange', async(event) => {
+        if (event.target.readyState === "complete") {
+            console.log("Readystate change event complete!")
+            await loadUserData()
+        }
+    });
 
     /**************** BEGINNING OF SVG GENERATION CLASSES *****************/
     class WeatherProcessItem {
@@ -172,11 +174,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         const vs = document.visibilityState
         try {
             if (vs === 'hidden') {
-                console.log("visibilitychange!, saving map state...");
                 await saveUserData();
             }
             else {
-                console.log("visibilitychange! restoring map state...");
                 await loadUserData();
             }
         }
@@ -232,37 +232,36 @@ document.addEventListener('DOMContentLoaded', async function () {
         
         try {
             const response = await fetch('/api/userdata', { 
-            method: 'POST', 
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: state 
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(state) 
             });
             
             if (!response.ok) {
                 throw new Error('Failed to save map state');
             }
-            
             console.log('Map state saved successfully');
         } catch (error) {
             console.error('Error saving map state:', error);
         }
-
-       try {
-            await disconnectWebSocket();
-        } catch (wsError) {
-            console.error('Error disconnecting WebSocket:', wsError);
-        }
     }
 
     async function loadUserData() {
-        const maplayers = map.getLayers().getArray();
+        const maplayers = await map.getLayers().getArray();
         const view = map.getView();
         let apvisible = false;
+        
+        try {
+            const response = await fetch('/api/userdata')
 
-        await fetch('/api/userdata')
-        .then(response => response.json())
-        .then(data => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json(); 
+            
             mapstate.center = data.center;
             mapstate.zoom = data.zoom;
             mapstate.rotation = data.rotation;
@@ -303,10 +302,10 @@ document.addEventListener('DOMContentLoaded', async function () {
                 view.setZoom(appsettings.startupzoom);
                 view.setRotation(0);
             }
-        })
-        .catch(error => {
-            console.log(`Error restoring map state: ${error}`);
-        });
+            console.log("Restoring map state...");
+        } catch(error) {
+            console.log(`Error restoring map state: ${error}`);   
+        }
     }
 
     // /**
