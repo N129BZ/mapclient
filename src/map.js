@@ -490,8 +490,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addLayer(tafVectorLayer);
 
+    const pirepVectorSource = new VectorSource({});
     const pirepVectorLayer = new VectorLayer({
-        source: new VectorSource(),
+        source: pirepVectorSource,
         title: "Pireps",
         name: "pireps",
         visible: false,
@@ -839,6 +840,29 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.log('Selected radius:', selectedRadius, 'miles');
     });
 
+    pirepVectorLayer.on('prerender', (evt) => {
+        // Use actual epoch timestamps to ensure smooth, low-rate rotation 
+        // regardless of minor frame drops or hardware refresh speeds.
+        const timeInSeconds = evt.frameState.time / 1000;
+        const DEGREES_PER_SECOND = 20;
+        const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180); 
+        const currentRotation = (timeInSeconds * targetRotationSpeed) % (Math.PI * 2);
+
+        // Mutate the single shared style property once per frame
+        pirepIconStyle.getImage().setRotation(currentRotation);
+
+        // Force a fresh frame render cycle on the next tick
+        map.render();
+    });
+
+    function animate() {
+        if (pirepVectorLayer.getVisible()) {
+           pirepVectorSource.changed();
+        }
+        requestAnimationFrame(animate);
+    }
+
+    animate();
     /**
      * Event to handle scaling of feature images
      */
@@ -1755,6 +1779,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /**
+     * module-scope common pirep IconStyle for later manipulation
+     */
+    const pirepsvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="650" height="700"><path d="m293.301 160.266.23 66.375-69.156 56.187V255.86h-23.094v46.532l-70.796 59.528-108.11 92.41-7.781 35.78 191.375-104.25 87.125-23.343 1.562 154.03 17.094 73.126-90.906 68.625v29.406l104.312-22.156 104 22.094v-29.407L338.25 589.61l17.094-73.125 1.562-154.03 87.125 23.343 191.375 104.25-7.781-35.781-107.164-91.403-71.742-60.535v-46.531h-23.094v26.969l-70.933-56.188.007-66.375c0-27.014.991-111.224-29.418-147.906-29.396 41.87-30.385 96.99-31.98 147.969z" style="opacity:1;color:#000;fill:#98294c;fill-opacity:1;fill-rule:nonzero;stroke:#000;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible"/></svg>`; 
+    const pirepIconStyle = new Style({
+        image: new Icon({
+            crossOrigin: 'anonymous',
+            src: `data:image/svg+xml;utf8,${encodeURIComponent(pirepsvg)}`,
+            offset: [0, 0],
+            opacity: 1,
+            scale: .05,
+            rotation: 0
+        })
+    });
+    /**
      * Place pirep features on the map
      * @param {object} pirep: JSON object with LOTS of pireps 
      */
@@ -1792,8 +1830,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
         try {
             const id = pirep.aircraft_ref ? pirep.aircraft_ref : pirep.station_id;
-            const heading = pseudoHeadingRadians(pirep.latitude, pirep.longitude);
-
             const pirepFeature = new Feature({
                 ident: id,
                 id: id,
@@ -1803,23 +1839,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 zIndex: 9999
             });
 
-            const pirepsvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="650" height="700"><path d="m293.301 160.266.23 66.375-69.156 56.187V255.86h-23.094v46.532l-70.796 59.528-108.11 92.41-7.781 35.78 191.375-104.25 87.125-23.343 1.562 154.03 17.094 73.126-90.906 68.625v29.406l104.312-22.156 104 22.094v-29.407L338.25 589.61l17.094-73.125 1.562-154.03 87.125 23.343 191.375 104.25-7.781-35.781-107.164-91.403-71.742-60.535v-46.531h-23.094v26.969l-70.933-56.188.007-66.375c0-27.014.991-111.224-29.418-147.906-29.396 41.87-30.385 96.99-31.98 147.969z" style="opacity:1;color:#000;fill:#98294c;fill-opacity:1;fill-rule:nonzero;stroke:#000;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible"/></svg>`;
-            const pirepIcon = new Icon({
-                crossOrigin: 'anonymous',
-                src: `data:image/svg+xml;utf8,${encodeURIComponent(pirepsvg)}`,
-                offset: [0, 0],
-                opacity: 1,
-                scale: .05,
-                rotation: heading
-            });
-
-            pirepFeature.setStyle(new Style({
-                image: pirepIcon
-            }));
-
-            pirepVectorLayer.getSource().addFeature(pirepFeature);
-            pirepFeature.changed();
-            pirepVectorLayer.changed();
+            pirepFeature.setStyle(pirepIconStyle);
+            pirepVectorSource.addFeature(pirepFeature);
+            pirepVectorSource.changed();
         }
         catch (err) {
             console.error(`Error in processPirep: ${err}`);
