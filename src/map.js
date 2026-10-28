@@ -1324,8 +1324,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const type = airport.type ? airport.type : "UNKNOWN";
         const frequencies = airport.frequencies;
         const runways = airport.runways;
-        const hasFrequencies = frequencies.length > 0;
-        const hasRunways = runways.length > 0;
+        const hasFrequencies = frequencies ? frequencies.length > 0 : false;
+        const hasRunways = runways ? runways.length > 0 : false;
 
         let html = `<div class="featurepopup" id="featurepopup">`;
         html += `<span class="airportheader" 
