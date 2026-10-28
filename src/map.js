@@ -89,7 +89,7 @@ const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i
  */
 let currentZoom = 9.0;
 let selectedRadius = 25; //default value
-let currentDoubleClickLocation = null;
+let currentDblClickLocation = null;
 let DistanceUnits = {};
 let distanceunit = "";
 
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         throw new Error("Application halted due to settings loading failure.");
     }
 
-    document.addEventListener('onreadystatechange', async(event) => {
+    document.addEventListener('onreadystatechange', async (event) => {
         if (event.target.readyState === "complete") {
             console.log("Readystate change event complete!")
             await loadUserData()
@@ -212,36 +212,36 @@ document.addEventListener('DOMContentLoaded', async function () {
         const center = view.getCenter();
         const zoom = view.getZoom();
         const rotation = view.getRotation();
-        
+
         const layerStates = [];
-        
+
         // 2. Safely extract visibility states
         layers.forEach((layer) => {
             const layerName = layer.get('name');
             if (layerName) {
-                layerStates.push({ 
-                    name: layerName, 
-                    visible: layer.getVisible() 
+                layerStates.push({
+                    name: layerName,
+                    visible: layer.getVisible()
                 });
             }
         });
-        
+
         mapstate.center = center;
         mapstate.zoom = zoom;
         mapstate.rotation = rotation;
         mapstate.radius = selectedRadius;
         mapstate.layerstates = layerStates;
-        
+
         try {
-            const response = await fetch('/api/userdata', { 
-                method: 'POST', 
+            const response = await fetch('/api/userdata', {
+                method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(mapstate) 
+                body: JSON.stringify(mapstate)
             });
-            
+
             if (!response.ok) {
                 throw new Error('Failed to save map state');
             }
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const maplayers = await map.getLayers().getArray();
         const view = map.getView();
         let apvisible = false;
-        
+
         try {
             const response = await fetch('/api/userdata', {
                 credentials: 'include'
@@ -265,12 +265,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            const rawdata = await response.json(); 
+            const rawdata = await response.json();
             const data = JSON.parse(rawdata);
 
             mapstate.center = data.center;
             mapstate.zoom = data.zoom;
-            mapstate.rotation = data.rotation;
             mapstate.layerstates = data.layerstates;
             mapstate.radius = data.radius;
 
@@ -296,35 +295,29 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (mapstate.center && mapstate.zoom) {
                 // Check for last position override
+                let searchradius = appsettings.defaultsearchradius;
                 if (appsettings.overridelastposition) {
                     view.setCenter(defaultPosition);
+                    view.setZoom(appsettings.startupzoom);
                 } else {
                     view.setCenter(mapstate.center);
+                    view.setZoom(parseFloat(mapstate.zoom));
+                    searchradius = mapstate.radius;
                 }
-                view.setZoom(mapstate.zoom);
-                view.setRotation(mapstate.rotation);
-                
-                if (apvisible) {
-                    currentDoubleClickLocation = toLonLat(mapstate.center);
-                    //const coordinate = {coordinate: mapstate.center};
-                    map.dispatchEvent({
-                        type: 'dblclick',
-                        coordinate: mapstate.center,
-                        pixel: map.getPixelFromCoordinate(mapstate.center) 
-                    });
 
-                    radiusDropdown.value = mapstate.radius;
-                    await showAirportsInRadius(currentDoubleClickLocation[0], 
-                                               currentDoubleClickLocation[1], mapstate.radius);
+                if (apvisible) {
+                    const lonlat = toLonLat(mapstate.center);
+                    console.log(`currentDblClickLocation: ${currentDblClickLocation}`)
+                    radiusDropdown.value = searchradius;
+                    await showAirportsInRadius(lonlat[0], lonlat[1], searchradius);
                 }
             } else {
                 view.setCenter(defaultPosition);
-                view.setZoom(appsettings.startupzoom);
-                view.setRotation(0);
+                view.setZoom(parseFloat(appsettings.startupzoom));
             }
             console.log("Map state restored!");
-        } catch(error) {
-            console.log(`Error restoring map state: ${error}`);   
+        } catch (error) {
+            console.log(`Error restoring map state: ${error}`);
         }
     }
 
@@ -486,6 +479,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addLayer(metarVectorLayer);
 
+    metarVectorLayer.on('change:visible', async () => {
+        const colorLegend = await getWeatherMapLegend();
+        if (metarVectorLayer.getVisible()) {
+            colorLegend.style.display = 'block';
+        }
+        else {
+            if (!tafVectorLayer.getVisible()) {
+                colorLegend.style.display = 'none';
+            }
+        }
+    })
+
     const tafVectorLayer = new VectorLayer({
         source: new VectorSource(),
         title: "TAFs",
@@ -497,6 +502,18 @@ document.addEventListener('DOMContentLoaded', async function () {
         updateWhileInteracting: false
     });
     map.addLayer(tafVectorLayer);
+
+    tafVectorLayer.on('change:visible', async () => {
+        const colorLegend = await getWeatherMapLegend();
+        if (tafVectorLayer.getVisible()) {
+            colorLegend.style.display = 'block';
+        }
+        else {
+            if (!metarVectorLayer.getVisible()) {
+                colorLegend.style.display = 'none';
+            }
+        }
+    })
 
     const pirepVectorSource = new VectorSource({});
     const pirepVectorLayer = new VectorLayer({
@@ -604,14 +621,64 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
     window.closePopup = closePopup;
 
+    /**
+     * This function returns an object that contains airport feature svg images
+     */
+    async function getWeatherSvgs() {
+        const weatherSvgs = {
+            vfr: "",
+            mvfr: "",
+            lifr: "",
+            ifr: ""
+        };
+
+        weatherSvgs.vfr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                                            <circle cx="6" cy="6" r="5" fill="green" stroke="black" stroke-width="1"/></svg>`;
+
+        weatherSvgs.mvfr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                                    <circle cx="6" cy="6" r="5" fill="blue" stroke="black" stroke-width="1"/></svg>`;
+
+        weatherSvgs.lifr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                                    <circle cx="6" cy="6" r="5" fill="magenta" stroke="black" stroke-width="1"/></svg>`;
+
+        weatherSvgs.ifr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
+                                    <circle cx="6" cy="6" r="5" fill="red" stroke="black" stroke-width="1"/></svg>`;
+        return weatherSvgs;
+    }
+
+    async function getWeatherMapLegend() {
+        const weatherSvgs = await getWeatherSvgs();
+        let detailhtml = `<table style="width: 100%; border-collapse: collapse;">
+                            <tr><td colspan="2" class="radius-header" style="text-align:center">Weather Marker Legend</td></tr>`;
+        detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">VFR</td>
+                <td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.vfr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">MVFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.mvfr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">LIFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.lifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">IFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.ifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+        </table`;
+
+        const colorLegend = document.getElementById('color-legend');
+        colorLegend.innerHTML = detailhtml;
+        return colorLegend;
+    }
+
     // Function to clear airport features
     function clearAirportFeatures() {
         Promise.resolve(airportVectorLayer.getSource().clear());
     }
 
-    // // Function to find and display airports within radius
+    // Function to find and display airports within radius
     async function showAirportsInRadius(lon, lat, radiusMiles) {
         try {
+            console.log(`showAirportsInRadius: Lon = ${lon}, Lat = ${lat}`)
             // Use the existing getAirportsInRadius function
             const airports = await getAirportsInRadius(lon, lat, radiusMiles);
 
@@ -709,7 +776,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 </td></tr>
         </table`;
 
-        const colorLegend = document.getElementById('airport-color-legend');
+        const colorLegend = document.getElementById('color-legend');
         colorLegend.innerHTML = detailhtml;
         return colorLegend;
     }
@@ -838,10 +905,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // Store the selected radius
         selectedRadius = parseInt(radius);
-        
+
         // Only search for airports if a radius is selected (not 0/clear)
-        if (selectedRadius > 0 && currentDoubleClickLocation) {
-            let lonlat = [currentDoubleClickLocation.lon, currentDoubleClickLocation.lat];
+        if (selectedRadius > 0 && currentDblClickLocation) {
+            let lonlat = [currentDblClickLocation.lon, currentDblClickLocation.lat];
             console.log('Searching for airports within', selectedRadius, 'miles of', lonlat);
             await showAirportsInRadius(lonlat[0], lonlat[1], selectedRadius);
         }
@@ -853,7 +920,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // regardless of minor frame drops or hardware refresh speeds.
         const timeInSeconds = evt.frameState.time / 1000;
         const DEGREES_PER_SECOND = 20;
-        const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180); 
+        const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180);
         const currentRotation = (timeInSeconds * targetRotationSpeed) % (Math.PI * 2);
 
         // Mutate the single shared style property once per frame
@@ -865,7 +932,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     function animate() {
         if (pirepVectorLayer.getVisible()) {
-           pirepVectorSource.changed();
+            pirepVectorSource.changed();
         }
         requestAnimationFrame(animate);
     }
@@ -956,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const lonLat = toLonLat(coordinate);
 
         // Store the clicked location for radius selector
-        currentDoubleClickLocation = {
+        currentDblClickLocation = {
             lon: lonLat[0],
             lat: lonLat[1]
         };
@@ -1789,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     /**
      * module-scope common pirep IconStyle for later manipulation
      */
-    const pirepsvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="650" height="700"><path d="m293.301 160.266.23 66.375-69.156 56.187V255.86h-23.094v46.532l-70.796 59.528-108.11 92.41-7.781 35.78 191.375-104.25 87.125-23.343 1.562 154.03 17.094 73.126-90.906 68.625v29.406l104.312-22.156 104 22.094v-29.407L338.25 589.61l17.094-73.125 1.562-154.03 87.125 23.343 191.375 104.25-7.781-35.781-107.164-91.403-71.742-60.535v-46.531h-23.094v26.969l-70.933-56.188.007-66.375c0-27.014.991-111.224-29.418-147.906-29.396 41.87-30.385 96.99-31.98 147.969z" style="opacity:1;color:#000;fill:#98294c;fill-opacity:1;fill-rule:nonzero;stroke:#000;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible"/></svg>`; 
+    const pirepsvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="650" height="700"><path d="m293.301 160.266.23 66.375-69.156 56.187V255.86h-23.094v46.532l-70.796 59.528-108.11 92.41-7.781 35.78 191.375-104.25 87.125-23.343 1.562 154.03 17.094 73.126-90.906 68.625v29.406l104.312-22.156 104 22.094v-29.407L338.25 589.61l17.094-73.125 1.562-154.03 87.125 23.343 191.375 104.25-7.781-35.781-107.164-91.403-71.742-60.535v-46.531h-23.094v26.969l-70.933-56.188.007-66.375c0-27.014.991-111.224-29.418-147.906-29.396 41.87-30.385 96.99-31.98 147.969z" style="opacity:1;color:#000;fill:#98294c;fill-opacity:1;fill-rule:nonzero;stroke:#000;stroke-width:4;stroke-linecap:round;stroke-linejoin:miter;marker:none;marker-start:none;marker-mid:none;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;visibility:visible;display:inline;overflow:visible"/></svg>`;
     const pirepIconStyle = new Style({
         image: new Icon({
             crossOrigin: 'anonymous',
