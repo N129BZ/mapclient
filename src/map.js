@@ -82,7 +82,6 @@ let map = null;
 let socket = null;
 let viewextent = [-180, -85, 180, 85];
 
-const chicagoCoords = fromLonLat([-87.6298, 41.8781]); // Chicago: lon, lat
 const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 /**
@@ -291,7 +290,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             if (mapstate.center && mapstate.zoom) {
-                view.setCenter(mapstate.center);
+                // Check for last position override
+                if (appsettings.overridelastposition) {
+                    view.setCenter(appsettings.defaultposition);
+                } else {
+                    view.setCenter(mapstate.center);
+                }
                 view.setZoom(mapstate.zoom);
                 view.setRotation(mapstate.rotation);
                 
@@ -309,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                                                currentDoubleClickLocation[1], mapstate.radius);
                 }
             } else {
-                view.setCenter(chicagoCoords);
+                view.setCenter(defaultPosition);
                 view.setZoom(appsettings.startupzoom);
                 view.setRotation(0);
             }
@@ -320,6 +324,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /* Map objects used for various keyname lookups */
+    const defaultPosition = fromLonLat(appsettings.defaultposition);
     let reconnectTimeout = null;
     let airportNameKeymap = new Map();
     let tafFieldKeymap = new Map();
@@ -443,7 +448,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     map = new OLMap({
         target: 'map',
         view: new View({
-            center: chicagoCoords,
+            center: defaultPosition,
             zoom: appsettings.startupzoom,
             enableRotation: false,
             minZoom: 1,
