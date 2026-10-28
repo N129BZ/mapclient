@@ -165,6 +165,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     const popup = document.getElementById('popup');
     const popupcontent = document.getElementById('popup-content');
     const radiusSelector = document.getElementById('airport-radius-selector');
+    const deflonlat = [appsettings.defaultposition.lon, appsettings.defaultposition.lat]
+    const defaultPosition = fromLonLat(deflonlat);
 
     document.getElementById('radius-header').textContent = `Airport Search Radius\nDouble-click on any map location`;
 
@@ -174,9 +176,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         try {
             if (vs === 'hidden') {
                 await saveUserData();
+                await disconnectWebSocket();
             }
             else {
                 await loadUserData();
+                await scheduleReconnect();
             }
         }
         catch (error) {
@@ -190,6 +194,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             socket.close();
             socket = null;
         }
+        console.log("WebSocket disconnected...")
         clearTimeout(reconnectTimeout);
     }
 
@@ -292,7 +297,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (mapstate.center && mapstate.zoom) {
                 // Check for last position override
                 if (appsettings.overridelastposition) {
-                    view.setCenter(appsettings.defaultposition);
+                    view.setCenter(defaultPosition);
                 } else {
                     view.setCenter(mapstate.center);
                 }
@@ -301,7 +306,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 
                 if (apvisible) {
                     currentDoubleClickLocation = toLonLat(mapstate.center);
-                    const coordinate = {coordinate: mapstate.center};
+                    //const coordinate = {coordinate: mapstate.center};
                     map.dispatchEvent({
                         type: 'dblclick',
                         coordinate: mapstate.center,
@@ -323,8 +328,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    /* Map objects used for various keyname lookups */
-    const defaultPosition = fromLonLat(appsettings.defaultposition);
     let reconnectTimeout = null;
     let airportNameKeymap = new Map();
     let tafFieldKeymap = new Map();
