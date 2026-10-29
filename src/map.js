@@ -310,8 +310,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (apvisible) {
                     radiusDropdown.value = mapstate.radius;
                     const lonlat = toLonLat(mapstate.center)
-                    view.setZoom(parseFloat(mapstate.zoom));
                     await showAirportsInRadius(lonlat[0], lonlat[1], searchradius);
+                    view.setZoom(parseFloat(mapstate.zoom));
                 }
             } else {
                 view.setCenter(defaultPosition);
