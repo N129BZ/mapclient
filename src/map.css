@@ -664,7 +664,7 @@ hr {
 .airport-radius-selector {
     position: absolute;
     top: 20px;
-    left: 20px;
+    left: 40px;
     background-color: white;
     border: 2px solid #333;
     border-radius: 8px;

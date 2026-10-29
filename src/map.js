@@ -15,6 +15,7 @@ import TileWMS from 'ol/source/TileWMS.js';
 import { XYZ } from 'ol/source';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
+import MapBrowserEvent from 'ol/MapBrowserEvent.js';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import VectorLayer from 'ol/layer/Vector';
@@ -99,7 +100,7 @@ const { promise, resolve, reject } = Promise.withResolvers();
 document.addEventListener('DOMContentLoaded', async function () {
     // Fetch settings asynchronously BEFORE anything else inside the DOM load lifecycle
     try {
-        const response = await fetch(`${URL_SERVER}/appsettings`);
+        const response = await fetch(`${URL_SERVER}/api/appsettings`);
         if (!response.ok) {
             throw new Error(`Server responded with status: ${response.status}`);
         }
@@ -166,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const popup = document.getElementById('popup');
     const popupcontent = document.getElementById('popup-content');
     const radiusSelector = document.getElementById('airport-radius-selector');
-    const deflonlat = [appsettings.defaultposition.lon, appsettings.defaultposition.lat]
+    const deflonlat = appsettings.defaultposition;
     const defaultPosition = fromLonLat(deflonlat);
 
     document.getElementById('radius-header').textContent = `Airport Search Radius\nDouble-click on any map location`;
@@ -307,9 +308,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
 
                 if (apvisible) {
-                    const lonlat = toLonLat(mapstate.center);
-                    console.log(`currentDblClickLocation: ${currentDblClickLocation}`)
-                    radiusDropdown.value = searchradius;
+                    radiusDropdown.value = mapstate.radius;
+                    const lonlat = toLonLat(mapstate.center)
+                    view.setZoom(parseFloat(mapstate.zoom));
                     await showAirportsInRadius(lonlat[0], lonlat[1], searchradius);
                 }
             } else {
@@ -645,6 +646,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         animatecontrol.style.visibility = visible ? 'visible' : 'hidden';
         visible ? await playWeatherRadar() : await stopWeatherRadar()
     });
+
     async function loadTileDatabases() {
         try {
 
@@ -713,6 +715,27 @@ document.addEventListener('DOMContentLoaded', async function () {
         return false;
     }
     window.closePopup = closePopup;
+
+    /**
+     * Programmatically triggers a dblclick event on an OpenLayers map instance
+     * @param {import("ol/Map").default} map - Your active OpenLayers Map object
+     * @param {import("ol/coordinate").Coordinate} coordinate - The coordinate array [x, y] to target
+     */
+    function triggerMapDoubleClick(coordinate) {
+        const pixel = map.getPixelFromCoordinate(coordinate);
+        const nativeEvent = new MouseEvent('dblclick', {
+            clientX: pixel ? pixel[0] : 0,
+            clientY: pixel ? pixel[1] : 0,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        const olEvent = new MapBrowserEvent('dblclick', map, nativeEvent);
+        olEvent.coordinate = coordinate;
+        olEvent.pixel = pixel;
+
+        map.dispatchEvent(olEvent);
+    }
 
     /**
      * This function returns an object that contains airport feature svg images
@@ -1450,8 +1473,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     break;
             }
         }
-        detailhtml += `
-                            </table>
+        detailhtml += ` </table>
                         </div>
                         <div class="popup-footer">
                             <div class="popup-button-row" style="display: flex; flex-direction: row; justify-content: space-between; width: 100%;">
