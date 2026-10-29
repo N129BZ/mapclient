@@ -776,11 +776,11 @@ document.addEventListener('DOMContentLoaded', async function () {
             <tr><td class="legend-dot-label">MVFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.mvfr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td class="legend-dot-label">LIFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
-                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.lifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
-                </td></tr>
             <tr><td class="legend-dot-label">IFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.ifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+            <tr><td class="legend-dot-label">LIFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.lifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
         </table`;
 
@@ -880,19 +880,21 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (appsettings.getHeliports) {
             detailhtml += helihtml;
         }
-        detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Seaport</td>
-                <td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
-                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.seaport).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
-                </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Turf</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
-                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.turf).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+        detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Towered</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.towered).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
             <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Uncontrolled</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.uncontrolled).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Towered</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
-                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.towered).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Turf</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.turf).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Seaport</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+                <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.seaport).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
+                </td></tr>
+            
+            
+            
         </table`;
 
         const colorLegend = document.getElementById('color-legend');
