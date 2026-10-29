@@ -11,6 +11,7 @@ import 'ol/ol.css';
 import 'ol-layerswitcher/dist/ol-layerswitcher.css';
 import { Map as OLMap, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
+import TileWMS from 'ol/source/TileWMS.js';
 import { XYZ } from 'ol/source';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
@@ -330,6 +331,14 @@ document.addEventListener('DOMContentLoaded', async function () {
     let turbulenceCodeKeymap = new Map();
     let skyConditionKeymap = new Map();
 
+    /**
+     * Animation variables 
+     */
+    let animationId = null;
+    let startDate = getTimeThreeHoursAgo();
+    let frameRate = 1.0; // frames per second
+    const animatecontrol = document.getElementById('wxbuttons');
+
     /*******keymap loading ******/
     loadTafFieldKeymap();
     loadMetarFieldKeymap();
@@ -441,6 +450,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         minWidth: 140
     });
 
+    const viewextent = [-180, -85, 180, 85];
+    const extent = transformExtent(viewextent, 'EPSG:4326', 'EPSG:3857');
+
     map = new OLMap({
         target: 'map',
         view: new View({
@@ -466,6 +478,23 @@ document.addEventListener('DOMContentLoaded', async function () {
         canvasWillReadFrequently: true
     });
     map.addLayer(osmTileLayer);
+    /**
+ * Tile source for animated weather
+ */
+    const animatedWxTileSource = new TileWMS({
+        attributions: ['Iowa State University'],
+        url: appsettings.animatedwxurl,
+        params: { 'LAYERS': 'nexrad-n0r-wmst' },
+    });
+
+    const animatedWxTileLayer = new TileLayer({
+        title: "Animated Weather",
+        extent: extent,
+        source: animatedWxTileSource,
+        visible: false,
+        zIndex: 11
+    });
+    map.addLayer(animatedWxTileLayer);
 
     const metarVectorLayer = new VectorLayer({
         source: new VectorSource(),
@@ -550,8 +579,72 @@ document.addEventListener('DOMContentLoaded', async function () {
             radiusSelector.style.display = 'none';
             colorLegend.style.display = 'none';
         }
-    })
+    });
 
+    /**
+     * For weather animation, gets the time 3 hours ago
+     * @returns Date
+     */
+    function getTimeThreeHoursAgo() {
+        return new Date(Math.round(Date.now() / 3600000) * 3600000 - 3600000 * 3);
+    }
+
+    /**
+     * Update the time clock  
+     */
+    function setTime() {
+        startDate.setMinutes(startDate.getMinutes() + 15);
+        if (startDate > Date.now()) {
+            startDate = getTimeThreeHoursAgo();
+        }
+        animatedWxTileSource.updateParams({ 'TIME': startDate.toISOString() });
+        updateInfo();
+    }
+    setTime();
+
+    /**
+     * Stop the weather radar animation
+     */
+    const stopWeatherRadar = async function () {
+        if (animationId !== null) {
+            window.clearInterval(animationId);
+            animationId = null;
+        }
+    };
+
+    /**
+     * Start the weather radar animation
+     */
+    const playWeatherRadar = async function () {
+        stop();
+        animationId = window.setInterval(setTime, 1000 / frameRate);
+    };
+
+    /**
+     * Animation start button element and event listener
+     */
+    const startButton = document.getElementById('play');
+    startButton.addEventListener('click', playWeatherRadar, false);
+
+    /**
+     * Animation stop button element and event listener
+     */
+    const stopButton = document.getElementById('pause');
+    stopButton.addEventListener('click', stopWeatherRadar, false);
+
+    /**
+     * For displaying the animation time clock
+     */
+    function updateInfo() {
+        const el = document.getElementById('info');
+        el.innerHTML = getLocalTime(startDate.toString());
+    }
+
+    animatedWxTileLayer.on('change:visible', async () => {
+        let visible = animatedWxTileLayer.get('visible');
+        animatecontrol.style.visibility = visible ? 'visible' : 'hidden';
+        visible ? await playWeatherRadar() : await stopWeatherRadar()
+    });
     async function loadTileDatabases() {
         try {
 
@@ -631,18 +724,21 @@ document.addEventListener('DOMContentLoaded', async function () {
             lifr: "",
             ifr: ""
         };
-
+        const vfr = getCategoryColors("VFR").bgcolor;
+        const mvfr = getCategoryColors("MVFR").bgcolor;
+        const lifr = getCategoryColors("LIFR").bgcolor;
+        const ifr = getCategoryColors("IFR").bgcolor;
         weatherSvgs.vfr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
-                                            <circle cx="6" cy="6" r="5" fill="green" stroke="black" stroke-width="1"/></svg>`;
+                                    <circle cx="6" cy="6" r="5" fill="${vfr}" stroke="black" stroke-width="1"/></svg>`;
 
         weatherSvgs.mvfr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
-                                    <circle cx="6" cy="6" r="5" fill="blue" stroke="black" stroke-width="1"/></svg>`;
+                                    <circle cx="6" cy="6" r="5" fill="${mvfr}" stroke="black" stroke-width="1"/></svg>`;
 
         weatherSvgs.lifr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
-                                    <circle cx="6" cy="6" r="5" fill="magenta" stroke="black" stroke-width="1"/></svg>`;
+                                    <circle cx="6" cy="6" r="5" fill="${lifr}" stroke="black" stroke-width="1"/></svg>`;
 
         weatherSvgs.ifr = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
-                                    <circle cx="6" cy="6" r="5" fill="red" stroke="black" stroke-width="1"/></svg>`;
+                                    <circle cx="6" cy="6" r="5" fill="${ifr}" stroke="black" stroke-width="1"/></svg>`;
         return weatherSvgs;
     }
 
@@ -650,17 +746,17 @@ document.addEventListener('DOMContentLoaded', async function () {
         const weatherSvgs = await getWeatherSvgs();
         let detailhtml = `<table style="width: 100%; border-collapse: collapse;">
                             <tr><td colspan="2" class="radius-header" style="text-align:center">Weather Marker Legend</td></tr>`;
-        detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">VFR</td>
-                <td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+        detailhtml +=
+            `<tr><td class="legend-dot-label">VFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.vfr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">MVFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+            <tr><td class="legend-dot-label">MVFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.mvfr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">LIFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+            <tr><td class="legend-dot-label">LIFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.lifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">IFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+            <tr><td class="legend-dot-label">IFR</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(weatherSvgs.ifr).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
         </table`;
@@ -931,9 +1027,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 
     function animate() {
-        if (pirepVectorLayer.getVisible()) {
-            pirepVectorSource.changed();
-        }
         requestAnimationFrame(animate);
     }
 

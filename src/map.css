@@ -108,30 +108,6 @@ html, body {
     font-size: medium;
     z-index: 5000;
 }
-.ol-layerswitcher button {
-  /* Clear out the default SVG background */
-  background-image: url('/images/my-custom-icon.svg') !important;
-  
-  /* Ensure your custom icon sits perfectly in the center */
-  background-size: 65% 65%;
-  background-position: center;
-  background-repeat: no-repeat;
-  
-  /* Optional: Reset background colors if your icon needs a clean slate */
-  background-color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* Optional: Change the icon or background style when hovered */
-.ol-layerswitcher button:hover {
-  background-color: rgba(255, 255, 255, 1) !important;
-}
-
-/* Optional: Style the button when the panel is actively open */
-.ol-layerswitcher.ol-layerswitcher-open button {
-  /* You can switch to a close/X icon here if desired */
-  background-image: url('/images/my-close-icon.svg') !important;
-}
-
 .footer {
     position: fixed; 
     left: 0px;
@@ -149,6 +125,12 @@ hr {
     border-style: 
     inset; 
     border-width: 1px;
+}
+.legend-dot-label {
+    font: B612;
+    font-weight:bold; 
+    padding:6px 8px; 
+    border-bottom: 1px solid #e0e0e0;
 }
 .traffic-popup-container {
     display: block;
@@ -710,6 +692,7 @@ hr {
     background-color: #00008b;
     color: white;
     padding: 10px;
+    font: B612;
     font-weight: bold;
     text-align: center;
     border-radius: 6px 6px 0 0;
