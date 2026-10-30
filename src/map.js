@@ -796,6 +796,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         </table`;
 
         const colorLegend = document.getElementById('color-legend');
+        colorLegend.style = "display:block;"
         colorLegend.innerHTML = detailhtml;
         return colorLegend;
     }
@@ -909,6 +910,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         </table`;
 
         const colorLegend = document.getElementById('color-legend');
+        colorLegend.style = "display:block;"
         colorLegend.innerHTML = detailhtml;
         return colorLegend;
     }
@@ -1205,20 +1207,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         let detailhtml = "";
         let time = (function () {
             const thistime = metar.observation_time ? metar.observation_time : metar.timestamp;
-            let fmttime = "";
-            if (thistime) {
-                fmttime = thistime;
-            } else {
-                fmttime = new Date().toISOString();
-            }
-            
+            let outtime = "";
             if (appsettings.uselocaltime) {
-                return new Date(fmttime).toLocaleString('en-US', {
-                    timeZoneName: 'short' 
-                });
+                outtime = new Date(thistime).toLocaleString('en-US', { timeZoneName: 'short' });
             } else {
-                return fmttime.slice(0, 16).replace('T', ' ') + 'Z';
+                outtime =  thistime.slice(0, 16).replace('T', ' ') + '&nbspZULU';
             }
+            return outtime;
         })();
 
         if (ident != "undefined") {
@@ -1651,31 +1646,25 @@ document.addEventListener('DOMContentLoaded', async function () {
             switch (rawfieldname) {
                 case "fcst_time_from":
                     if (appsettings.uselocaltime) {
-                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
-                            timeZoneName: 'short' 
-                        });
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
                     }
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "fcst_time_to": 
                     if (appsettings.uselocaltime) {
-                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
-                            timeZoneName: 'short' 
-                        });
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
                     }
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "time_becoming":
                     if (appsettings.uselocaltime) {
-                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
-                            timeZoneName: 'short' 
-                        });
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';    
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';    
                     }
                     detailhtml = `${rowPrefix}${cellData}Becoming: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
