@@ -1211,7 +1211,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             } else {
                 fmttime = new Date().toISOString();
             }
-            return fmttime.slice(0, 16).replace('T', '<br>') + 'Z';
+            
+            if (appsettings.uselocaltime) {
+                return new Date(fmttime).toLocaleString('en-US', {
+                    timeZoneName: 'short' 
+                });
+            } else {
+                return fmttime.slice(0, 16).replace('T', ' ') + 'Z';
+            }
         })();
 
         if (ident != "undefined") {
@@ -1642,17 +1649,34 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (fieldname && rawfieldname) {
             let formattedvalue = null;
             switch (rawfieldname) {
-
                 case "fcst_time_from":
-                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                    if (appsettings.uselocaltime) {
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
+                            timeZoneName: 'short' 
+                        });
+                    } else {
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                    }
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
-                case "fcst_time_to": // I'm going to ignore this field to save space on the popup
-                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                case "fcst_time_to": 
+                    if (appsettings.uselocaltime) {
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
+                            timeZoneName: 'short' 
+                        });
+                    } else {
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                    }
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "time_becoming":
-                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                    if (appsettings.uselocaltime) {
+                        formattedValue = new Date(fieldvalue).toLocaleString('en-US', {
+                            timeZoneName: 'short' 
+                        });
+                    } else {
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';    
+                    }
                     detailhtml = `${rowPrefix}${cellData}Becoming: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "change_indicator":
