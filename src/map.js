@@ -392,13 +392,13 @@ document.addEventListener('DOMContentLoaded', async function () {
                 for (const report of reportArray) {
                     let stationInfo = "";
                     if (report.raw_text) {
-                        const message = {
-                            Type: arrayKey,
-                            Location: report.station_id ? report.station_id : "",
-                            Time: report.observation_time ? report.observation_time : "",
-                            Data: report.raw_text,
-                            LocaltimeReceived: new Date().toLocaleTimeString()
-                        };
+                        // const message = {
+                        //     Type: arrayKey,
+                        //     Location: report.station_id ? report.station_id : "",
+                        //     Time: report.observation_time ? report.observation_time : "",
+                        //     Data: report.raw_text,
+                        //     LocaltimeReceived: new Date().toLocaleTimeString()
+                        // };
 
                         if (arrayKey) {
                             switch (arrayKey) {
@@ -479,9 +479,10 @@ document.addEventListener('DOMContentLoaded', async function () {
         canvasWillReadFrequently: true
     });
     map.addLayer(osmTileLayer);
+
     /**
- * Tile source for animated weather
- */
+    * Tile source for animated weather
+    */
     const animatedWxTileSource = new TileWMS({
         attributions: ['Iowa State University'],
         url: appsettings.animatedwxurl,
@@ -664,11 +665,19 @@ document.addEventListener('DOMContentLoaded', async function () {
                         zOrder = 12;
                     }
 
-                    let title = metadata.description ? metadata.description.replace(" Chart", "") : dbname;
-                    if (title === "osm.mbtiles") title = "OSM Offline";
-                    //let layertype = metadata.type === "baselayer" ? "base" : metadata.type;
-                    let layertype = ""; //metadata.type;
+                    let title = metadata.description; // ? metadata.description.replace(" Chart", "") : dbname;
+                    let layertype = "overlay";
+                    let visible = false;
+                    let zindex = 4;
+                    let displayInSwitcher = true;
 
+                    // if (title === "OSM Offline") {
+                    //     layertype = "";
+                    //     visible = true;
+                    //     zindex = 0;
+                    //     displayInSwitcher = false;
+                    // }
+                    
                     let dburl = URL_GET_TILE.replace("{dbname}", dbname);
                     var layer = new TileLayer({
                         source: new XYZ({
@@ -682,12 +691,14 @@ document.addEventListener('DOMContentLoaded', async function () {
                         name: dbname,
                         title: title,
                         type: layertype,
-                        visible: false,
+                        visible: visible,
                         extent: extent,
-                        zIndex: 4
+                        zIndex: zindex,
+                        canvasWillReadFrequently: true,
+                        displayInLayerSwitcher: displayInSwitcher
                     });
                     if (dbname === "osm" || dbname === "osm.mbtiles") {
-                        map.getLayers().insertAt(1, layer);
+                        map.getLayers().insertAt(0, layer);
                     }
                     else {
                         map.addLayer(layer);
@@ -1193,23 +1204,20 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         let detailhtml = "";
         let time = (function () {
-            if (metar.observation_time) {
-                return metar.observation_time;
+            const thistime = metar.observation_time ? metar.observation_time : metar.timestamp;
+            let fmttime = "";
+            if (thistime) {
+                fmttime = thistime;
+            } else {
+                fmttime = new Date().toISOString();
             }
-            else if (metar.timestamp) {
-                return metar.timestamp;
-            }
-            else {
-                return new Date();
-            }
+            return fmttime.slice(0, 16).replace('T', '<br>') + 'Z';
         })();
-
-
 
         if (ident != "undefined") {
             detailhtml =
                 `<div style="display:block;">
-                <span class="popup-title-area" style="background-color:${bgcolor}; color:${fgcolor};">${stationName}</span>
+                <span class="airportheader" style="background-color:${bgcolor}; color:${fgcolor};">${stationName}</span>
                 <div class="popup-content">
                     <div class="table-scroll-container">
                         <table class="popup-body-table" id="metartable">
@@ -1228,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     <div class="popup-footer">
                         <div class="popup-button-row" style="display: flex; flex-direction: row; justify-content: space-between; width: 100%;">`;
             if (stationName) {
-                detailhtml += `<button class="custom-popup-button" id="airport-info" style="background:${bgcolor}; color:${fgcolor};">Airport Information</button>`;
+                detailhtml += `<button class="custom-popup-button" id="airport-info" style="background:${bgcolor}; color:${fgcolor};">Field Info</button>`;
             }
             detailhtml += `<span class="windsvg">${svg}</span>
                             <button class="custom-popup-button" onclick="closePopup()" style="background:${bgcolor}; color:${fgcolor};">Close</button>
@@ -1524,29 +1532,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                             style="background-color:${bgcolor}; color:${fgcolor}; border: 1px solid black;">${name}</span><br>`;
         `<div class="airport-popup-body">`;
 
-        // Basic airport information
-        html += `<div class="airport-basic-info">`; // 3rd unclosed <div> element
-        html += `<table style="width: 100%; border-collapse: collapse; margin-top: 5px;">`;
-        html += `<tr class="airport-subarea"><td colspan="3" class="airport-subarea">Airport Information</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #ddd;">`;
-        html += `<td colspan="1"  style="text-align: left; padding: 2px 10px 2px 0; vertical-align: top;">IDENTIFIER:</td>`;
-        html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${ident}</b></td>`;
-        html += `</tr>`;
-        html += `<tr style="border-bottom: 1px solid #ddd;">`;
-        html += `<td colspan="1" style="text-align: left; padding: 2px 10px 2px 0; vertical-align: top;">TYPE:</td>`;
-        html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${String(type).replace('_', ' ').toUpperCase()}</b></td>`;
-        html += `</tr>`;
-        if (airport.elevation) {
-            html += `<tr style="border-bottom: 1px solid #ddd;">`;
-            html += `<td colspan="1" style="text-align: left; padding: 2px 0; vertical-align: top;">ELEVATION:</td>`;
-            html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${airport.elevation} ft MSL</b></td>`;
-            html += `</tr>`;
-        }
-        html += `<tr><td colspan="3" style="height: 12px;"></td></tr>`; // end of airport info
-
         let frhtml = "";
         let rwhtml = "";
-
+        let aptype = "UNCONTROLLED";
         try {
             // Frequencies section
             if (hasFrequencies) {
@@ -1554,6 +1542,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 for (const freq of frequencies) {
                     frhtml += `<tr style="border-bottom: 1px solid #ddd;">`;
                     if (freq.description && freq.frequency) {
+                        if (freq.description === "TWR") {
+                            aptype = "TOWERED";
+                        }
                         frhtml += `<td colspan="1" class="airport-table-item">${freq.description}</td>`;
                         frhtml += `<td colspan="2" class="airport-table-item"><b>${freq.frequency}</b></td>`;
                     }
@@ -1588,6 +1579,27 @@ document.addEventListener('DOMContentLoaded', async function () {
         } catch (err) {
             console.error("Error processing airport frequencies or runways:", err);
         }
+
+        // Basic airport information
+        html += `<div class="airport-basic-info">`; // 3rd unclosed <div> element
+        html += `<table style="width: 100%; border-collapse: collapse; margin-top: 5px;">`;
+        html += `<tr class="airport-subarea"><td colspan="3" class="airport-subarea">Field Information</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #ddd;">`;
+        html += `<td colspan="1"  style="text-align: left; padding: 2px 10px 2px 0; vertical-align: top;">IDENTIFIER:</td>`;
+        html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${ident}</b></td>`;
+        html += `</tr>`;
+        html += `<tr style="border-bottom: 1px solid #ddd;">`;
+        html += `<td colspan="1" style="text-align: left; padding: 2px 10px 2px 0; vertical-align: top;">TYPE:</td>`;
+        html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${aptype}</b></td>`;
+        html += `</tr>`;
+        if (airport.elevation) {
+            html += `<tr style="border-bottom: 1px solid #ddd;">`;
+            html += `<td colspan="1" style="text-align: left; padding: 2px 0; vertical-align: top;">ELEVATION:</td>`;
+            html += `<td colspan="2" style="text-align: left; padding: 2px 0; vertical-align: top;"><b>${airport.elevation} ft MSL</b></td>`;
+            html += `</tr>`;
+        }
+        html += `<tr><td colspan="3" style="height: 12px;"></td></tr>`; // end of airport info
+
         html += `${frhtml}${rwhtml}`;
         html += `</table>`;
         html += `</div></div>`; // closes 2 opened <div> elements
@@ -1632,18 +1644,16 @@ document.addEventListener('DOMContentLoaded', async function () {
             switch (rawfieldname) {
 
                 case "fcst_time_from":
-                    formattedValue = fieldvalue;
-                    if (appsettings.uselocaltime) {
-                        formattedValue = getLocalTime(fieldvalue);
-                    }
+                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "fcst_time_to": // I'm going to ignore this field to save space on the popup
-                    formattedValue = fieldvalue;
-                    if (appsettings.uselocaltime) {
-                        formattedValue = getLocalTime(fieldvalue);
-                    }
+                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
+                    break;
+                case "time_becoming":
+                    formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + 'Z';
+                    detailhtml = `${rowPrefix}${cellData}Becoming: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "change_indicator":
                     formattedValue = getWeatherAcronymDescription(fieldvalue);
@@ -1673,7 +1683,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     detailhtml = `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${formattedvalue}</b>${rowSuffix}`;
                     break;
                 case "temperature":
-                case "time_becoming":
                 case "probability":
                 case "wind_speed_kt":
                 case "wind_gust_kt":
@@ -1733,7 +1742,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             const value = condition[item];
             if (typeof (value) === "object") {
                 for (const subitem in value) {
-                    const subvalue = value[subitem];
+                    const subvalue = getSkyConditionDescription(value[subitem]);
                     fieldname = getFieldDescription(subitem);
                     if (fieldname && subvalue) {
                         output += `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${subvalue}</b>${rowSuffix}`;
@@ -2222,7 +2231,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /**
-     * Get the local machine dae/time from the supplied ZULU date
+     * Get the local machine date/time from the supplied ZULU date
      * @param {*} zuludate: the ZULU date to be translated 
      * @returns string: the translated date in standard or daylight time
      */
@@ -2449,6 +2458,10 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     function loadWeatherAcronymKeymap() {
         weatherAcronymKeymap.set("FM", "From");
+        weatherAcronymKeymap.set("CLR", "Clear");
+        weatherAcronymKeymap.set("SCT", "Scattered");
+        weatherAcronymKeymap.set("BKN", "Broken");
+        weatherAcronymKeymap.set("OVC", "Overcast");
         weatherAcronymKeymap.set("OCNL", "Occasional");
         weatherAcronymKeymap.set("TEMPO", "Temporary");
         weatherAcronymKeymap.set("BECMG", "Becoming");
@@ -2540,13 +2553,15 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     function loadSkyConditionmKeymap() {
         skyConditionKeymap.set("BKN", "Broken");
+        skyConditionKeymap.set("CLR", "Clear");
+        skyConditionKeymap.set("SCT", "Scattered");
         skyConditionKeymap.set("FM", "From");
         skyConditionKeymap.set("TEMPO", "Temporary");
         skyConditionKeymap.set("BECMG", "Becoming");
         skyConditionKeymap.set("PROB", "Probability");
         skyConditionKeymap.set("CB", "Cumulo-Nimbus");
         skyConditionKeymap.set("IMC", "Instrument meteorological conditions"),
-            skyConditionKeymap.set("IMPR", "Improving");
+        skyConditionKeymap.set("IMPR", "Improving");
         skyConditionKeymap.set("INC", "In Clouds");
         skyConditionKeymap.set("INS", "Inches");
         skyConditionKeymap.set("INTER", "Intermittent");
